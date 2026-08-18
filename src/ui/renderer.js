@@ -36,7 +36,8 @@ export class UIRenderer {
             <div class="stage-badge" id="stageBadge">Stage 1: The Whispering Woods</div>
           </div>
           <div class="header-right">
-            <button id="btnSound" class="icon-btn" title="Toggle Sound">🔊</button>
+            <button id="btnMusic" class="icon-btn" title="Toggle Music (Ghibli Station)">🎵 Music</button>
+            <button id="btnSound" class="icon-btn" title="Toggle Sound FX">🔊 SFX</button>
             <button id="btnLore" class="icon-btn" title="Story Lore">📜 Story</button>
             <button id="btnHelp" class="icon-btn" title="Spellbook Guide">📖 Guide</button>
           </div>

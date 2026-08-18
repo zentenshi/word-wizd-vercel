@@ -26,7 +26,7 @@ Play as **Alistair the WordWiz**, casting incantations from a 4x4 rune board to 
   - **Stage 2**: *Morvath the Shadow Lich* (Curses rune tiles)
   - **Stage 3**: *Ignis the Pyre Wyrm* (Final Boss, breathes fire & scorches board)
 - **Zero-Lag Offline Dictionary**: 83,600+ official tournament words bundled locally ($O(1)$ lookup, 0ms latency, zero API rate limits).
-- **Procedural Web Audio**: Zero-asset retro fantasy sound effects synthesized directly in browser.
+- **Background Music & Web Audio SFX**: Features *Ghibli Station* by The Mini Vandals (placed in `/public/audio/ghibli_station.mp3`) with seamless procedural ambient synthesizer fallback and independent Music / SFX controls.
 - **Tactical Items**: Health Potions, Scramble Winds, and Arcane Insight (anagram solver hints).
 
 ---

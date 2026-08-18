@@ -68,11 +68,19 @@ class WordWizGame {
     }
 
     // 4. Header Buttons
+    const btnMusic = document.getElementById('btnMusic');
+    if (btnMusic) {
+      btnMusic.addEventListener('click', () => {
+        const playing = soundManager.toggleMusic();
+        btnMusic.textContent = playing ? '🎵 Music' : '🔇 Music';
+      });
+    }
+
     const btnSound = document.getElementById('btnSound');
     if (btnSound) {
       btnSound.addEventListener('click', () => {
-        const muted = soundManager.toggleMute();
-        btnSound.textContent = muted ? '🔇' : '🔊';
+        const active = soundManager.toggleSFX();
+        btnSound.textContent = active ? '🔊 SFX' : '🔇 SFX';
       });
     }
 
@@ -85,6 +93,15 @@ class WordWizGame {
     if (btnHelp) {
       btnHelp.addEventListener('click', () => this.showHelpModal());
     }
+
+    // Auto-start BGM on first user interaction anywhere
+    const startAudioOnGesture = () => {
+      soundManager.startBGM();
+      window.removeEventListener('click', startAudioOnGesture);
+      window.removeEventListener('keydown', startAudioOnGesture);
+    };
+    window.addEventListener('click', startAudioOnGesture, { once: true });
+    window.addEventListener('keydown', startAudioOnGesture, { once: true });
 
     // 5. Keyboard Navigation & Typing
     window.addEventListener('keydown', (e) => {

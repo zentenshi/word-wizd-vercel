@@ -1,13 +1,30 @@
 /**
- * Procedural Web Audio Sound Synthesizer for WordWiz
- * High quality fantasy sound effects with 0 external asset dependencies
+ * Sound & Background Music Manager for WordWiz
+ * Supports MP3 BGM (Ghibli Station by The Mini Vandals) with procedural synthesis
  */
 
 class SoundManager {
   constructor() {
     this.ctx = null;
-    this.muted = false;
     this.masterGain = null;
+    this.sfxMuted = false;
+    this.musicMuted = false;
+
+    // Background Music Audio Element
+    this.bgm = new Audio('/audio/ghibli_station.mp3');
+    this.bgm.loop = true;
+    this.bgm.volume = 0.35;
+    this.bgmStarted = false;
+    this.bgmUsingSynth = false;
+    this.synthBgmTimer = null;
+
+    // Setup error fallback to procedural Ghibli synthesizer
+    this.bgm.addEventListener('error', () => {
+      console.log('MP3 not found or blocked, falling back to procedural Ghibli ambient music.');
+      if (!this.musicMuted && this.bgmStarted) {
+        this.startProceduralGhibliBGM();
+      }
+    });
   }
 
   init() {
@@ -32,19 +49,129 @@ class SoundManager {
     }
   }
 
-  toggleMute() {
-    this.muted = !this.muted;
-    if (this.masterGain && this.ctx) {
-      this.masterGain.gain.setValueAtTime(this.muted ? 0 : 0.3, this.ctx.currentTime);
+  /**
+   * Start BGM on first user interaction
+   */
+  startBGM() {
+    this.bgmStarted = true;
+    if (this.musicMuted) return;
+
+    this.resume();
+
+    // Try playing MP3 first
+    const playPromise = this.bgm.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(() => {
+        // Fallback to procedural synth music
+        this.startProceduralGhibliBGM();
+      });
     }
-    return this.muted;
+  }
+
+  toggleMusic() {
+    this.musicMuted = !this.musicMuted;
+    if (this.musicMuted) {
+      this.bgm.pause();
+      this.stopProceduralGhibliBGM();
+    } else {
+      this.bgmStarted = true;
+      this.startBGM();
+    }
+    return !this.musicMuted;
+  }
+
+  toggleSFX() {
+    this.sfxMuted = !this.sfxMuted;
+    if (this.masterGain && this.ctx) {
+      this.masterGain.gain.setValueAtTime(this.sfxMuted ? 0 : 0.3, this.ctx.currentTime);
+    }
+    return !this.sfxMuted;
   }
 
   /**
-   * Sound when clicking a letter tile (pitch increases with word length)
+   * Procedural Ghibli-inspired Pentatonic Harp/Piano Ambient Synth
+   */
+  startProceduralGhibliBGM() {
+    if (this.synthBgmTimer || this.musicMuted) return;
+    this.resume();
+    if (!this.ctx) return;
+
+    this.bgmUsingSynth = true;
+
+    // Ghibli-esque warm pentatonic scale (D-major / B-minor: D4, E4, F#4, A4, B4, D5, E5, F#5)
+    const scale = [293.66, 329.63, 369.99, 440.00, 493.88, 587.33, 659.25, 739.99];
+    const chords = [
+      [293.66, 369.99, 440.00], // D
+      [246.94, 293.66, 369.99, 440.00], // Bm7
+      [220.00, 277.18, 329.63, 440.00], // A
+      [196.00, 246.94, 293.66, 369.99]  // Gmaj7
+    ];
+
+    let chordIdx = 0;
+    let step = 0;
+
+    const playNote = () => {
+      if (this.musicMuted || !this.bgmUsingSynth) return;
+      const t = this.ctx.currentTime;
+
+      // Chord root/harmony every 8 beats
+      if (step % 8 === 0) {
+        const chord = chords[chordIdx % chords.length];
+        chord.forEach(freq => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq / 2, t);
+
+          gain.gain.setValueAtTime(0.04, t);
+          gain.gain.exponentialRampToValueAtTime(0.0001, t + 2.5);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(t);
+          osc.stop(t + 2.5);
+        });
+        chordIdx++;
+      }
+
+      // Melody harp arpeggio
+      if (Math.random() < 0.75) {
+        const freq = scale[Math.floor(Math.random() * scale.length)];
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, t);
+
+        gain.gain.setValueAtTime(0.06, t);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 1.2);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 1.2);
+      }
+
+      step++;
+      this.synthBgmTimer = setTimeout(playNote, 400 + Math.random() * 200);
+    };
+
+    playNote();
+  }
+
+  stopProceduralGhibliBGM() {
+    this.bgmUsingSynth = false;
+    if (this.synthBgmTimer) {
+      clearTimeout(this.synthBgmTimer);
+      this.synthBgmTimer = null;
+    }
+  }
+
+  /**
+   * Sound FX
    */
   playTileClick(index = 0) {
-    if (this.muted) return;
+    if (this.sfxMuted) return;
     this.resume();
     if (!this.ctx) return;
 
@@ -68,7 +195,7 @@ class SoundManager {
   }
 
   playTileDeselect() {
-    if (this.muted) return;
+    if (this.sfxMuted) return;
     this.resume();
     if (!this.ctx) return;
 
@@ -91,12 +218,12 @@ class SoundManager {
   }
 
   playValidWord() {
-    if (this.muted) return;
+    if (this.sfxMuted) return;
     this.resume();
     if (!this.ctx) return;
 
     const t = this.ctx.currentTime;
-    const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6 chord
+    const notes = [523.25, 659.25, 783.99, 1046.50];
     notes.forEach((freq, i) => {
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
@@ -117,13 +244,11 @@ class SoundManager {
   }
 
   playCastSpell(type = 'normal') {
-    if (this.muted) return;
+    if (this.sfxMuted) return;
     this.resume();
     if (!this.ctx) return;
 
     const t = this.ctx.currentTime;
-
-    // Laser / fireball sweep
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     osc.type = type === 'ruby' ? 'sawtooth' : 'sine';
@@ -143,9 +268,8 @@ class SoundManager {
     osc.start(t);
     osc.stop(t + 0.35);
 
-    // Shimmering explosion burst
     setTimeout(() => {
-      if (!this.ctx) return;
+      if (!this.ctx || this.sfxMuted) return;
       const t2 = this.ctx.currentTime;
       const noise = this.ctx.createBufferSource();
       const buffer = this.ctx.createBuffer(1, this.ctx.sampleRate * 0.2, this.ctx.sampleRate);
@@ -173,7 +297,7 @@ class SoundManager {
   }
 
   playEnemyAttack() {
-    if (this.muted) return;
+    if (this.sfxMuted) return;
     this.resume();
     if (!this.ctx) return;
 
@@ -196,12 +320,12 @@ class SoundManager {
   }
 
   playHeal() {
-    if (this.muted) return;
+    if (this.sfxMuted) return;
     this.resume();
     if (!this.ctx) return;
 
     const t = this.ctx.currentTime;
-    const notes = [392, 523.25, 659.25, 783.99]; // G4, C5, E5, G5
+    const notes = [392, 523.25, 659.25, 783.99];
     notes.forEach((freq, i) => {
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
@@ -222,12 +346,11 @@ class SoundManager {
   }
 
   playPotion() {
-    if (this.muted) return;
+    if (this.sfxMuted) return;
     this.resume();
     if (!this.ctx) return;
 
     const t = this.ctx.currentTime;
-    // Glug bubbling
     [240, 320, 280, 360, 420].forEach((freq, i) => {
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
@@ -249,7 +372,7 @@ class SoundManager {
   }
 
   playScramble() {
-    if (this.muted) return;
+    if (this.sfxMuted) return;
     this.resume();
     if (!this.ctx) return;
 
@@ -273,18 +396,18 @@ class SoundManager {
   }
 
   playVictory() {
-    if (this.muted) return;
+    if (this.sfxMuted) return;
     this.resume();
     if (!this.ctx) return;
 
     const t = this.ctx.currentTime;
     const fanfare = [
-      { f: 523.25, d: 0.12 }, // C5
-      { f: 659.25, d: 0.12 }, // E5
-      { f: 783.99, d: 0.12 }, // G5
-      { f: 1046.50, d: 0.35 }, // C6
-      { f: 880.00, d: 0.12 },  // A5
-      { f: 1046.50, d: 0.5 }   // C6
+      { f: 523.25, d: 0.12 },
+      { f: 659.25, d: 0.12 },
+      { f: 783.99, d: 0.12 },
+      { f: 1046.50, d: 0.35 },
+      { f: 880.00, d: 0.12 },
+      { f: 1046.50, d: 0.5 }
     ];
 
     let current = t;
@@ -308,12 +431,12 @@ class SoundManager {
   }
 
   playGameOver() {
-    if (this.muted) return;
+    if (this.sfxMuted) return;
     this.resume();
     if (!this.ctx) return;
 
     const t = this.ctx.currentTime;
-    const notes = [440, 415.30, 392, 349.23]; // A4, Ab4, G4, F4 minor descent
+    const notes = [440, 415.30, 392, 349.23];
     let current = t;
     notes.forEach((f) => {
       const osc = this.ctx.createOscillator();
